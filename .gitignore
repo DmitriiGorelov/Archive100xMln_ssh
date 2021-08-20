@@ -1,3 +1,5 @@
 /bin/
 /CompressMln/.vs/
 *.db
+*.bff
+*.fdb
