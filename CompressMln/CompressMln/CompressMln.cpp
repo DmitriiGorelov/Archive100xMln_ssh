@@ -24,17 +24,19 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+/*
 struct pattern {
 	explicit pattern(const string& newValue)
 	{
 		value = newValue;
-		flag = false;
+		//flag = false;
 	}
 
 	string value;
-	bool flag;
+	//bool flag;
 	pattern& operator=(const string& newValue) { value = newValue; return *this; }
-};
+};*/
+typedef string pattern;
 
 static string sPathSource;
 static string sPathArchive;
@@ -129,7 +131,7 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 	{
 		//for (auto pos : pt.second)
 		{
-			vector<unsigned char> v{ pt.second->value.begin(), pt.second->value.end() };
+			vector<unsigned char> v{ pt.second->begin(), pt.second->end() };
 			chrStage1Rest.insert(chrStage1Rest.begin() + pt.first, v.begin(),v.end());
 		}
 	}
@@ -471,12 +473,8 @@ void pack2()
 	
 	for (auto it = dictTmp3.rbegin(); it != dictTmp3.rend(); it++)
 	{
-		if (!(*it).second->flag)
-		{			
-			(*it).second->flag = true;
-		}
 		dictPatterns[(*it).second].emplace(dictPatterns[(*it).second].begin(),(*it).first);
-		chrStage1Rest.erase(chrStage1Rest.begin()+ (*it).first, chrStage1Rest.begin() + (*it).first+((*it).second->value.size()));
+		chrStage1Rest.erase(chrStage1Rest.begin()+ (*it).first, chrStage1Rest.begin() + (*it).first+((*it).second->size()));
 	}
 }
 
@@ -514,11 +512,11 @@ void saveArchive(const std::string& sPathArchive)
 	for (auto it : dictPatterns)
 	{
 		// size of pattern
-		size = it.first->value.length();
+		size = it.first->length();
 		*byte4p = size;
 		outputFile.write((char*)&byte4, sizeof(byte4));
 		// write pattern
-		outputFile.write(it.first->value.c_str(), it.first->value.length());
+		outputFile.write(it.first->c_str(), it.first->length());
 		//write len of positions vector
 		size = it.second.size();
 		*byte4p = size;
