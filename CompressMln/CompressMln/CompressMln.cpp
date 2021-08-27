@@ -240,13 +240,9 @@ void pack2()
 	};
 	if (chrStage1Rest.size() > winLen)
 	{
-		eDirection flagDirection = eDirection::dKeep;
-		int numEntries;
-		while (winLen >= gWIN_LEN_SMALLEST)
-		{
-			memoWinLen.push_back(winLen);
-			flagDirection = eDirection::dKeep;
-			numEntries = 0;
+		auto func = [&dictTmp2](int winLen) {
+			unordered_map<string, vector<int>> dictTmp;
+			int numEntries=0;
 			for (int i = 0; (i <= chrStage1Rest.size() - winLen)/* && (dict.size()<255)*/; i++)
 			{
 				dictTmp[string(chrStage1Rest.begin() + i, chrStage1Rest.begin() + i + winLen)].push_back(i);
@@ -255,66 +251,30 @@ void pack2()
 					numEntries++;
 				if (numEntries > ((1 << (min(4, winLen / 2) * 8)) - 1))
 				{
-					flagDirection = eDirection::dUp;
-					break;
+					return;
 				}
 			}
 
-			if (flagDirection == eDirection::dKeep)
+			for (auto& it : dictTmp)
 			{
-				for (auto& it : dictTmp)
+				if (it.second.size() > 1)
 				{
-					if (it.second.size() > 1)
-					{
-						dictTmp2[winLen][it.first] = it.second;
-					}
+					dictTmp2[winLen][it.first] = it.second;
 				}
-				dictTmp.clear();
-
-				//to optimize here: some patterns may repeat many times, and this will be space saving
-				if (dictTmp2[winLen].size() > ((1 << (min(4, winLen / 2) * 8)) - 1)) // we cannot enumerate all patterns and write an index at the place of pattern,
-					//because the index requires more bytes than the length of a patern (no space saving)
-				{
-					flagDirection = eDirection::dUp;
-				}
-				else
-					if (dictTmp2[winLen].size() < 127)
-					{
-						flagDirection = eDirection::dDown;
-					}
-					else
-					{
-						flagDirection = eDirection::dDown;
-					}
 			}
-
-			switch (flagDirection)
-			{
-			case eDirection::dUp:
-			{
-				winLen++;
-				break;
-			}
-			case eDirection::dDown:
-			{
-				winLen--; break;
-			}
-			}
-			if (find(memoWinLen.begin(), memoWinLen.end(), winLen) != memoWinLen.end()) // already searched for patterns of this size and found some
-			{
-				flagDirection = eDirection::dStop;
-				break;
-			}
-
-			if (flagDirection == eDirection::dStop || flagDirection == eDirection::dKeep)
-				break;
-			// sort from biggest counter to smallest
-			// add to dict with positions
-			// scan array and remove the most often patterns
-			vector<unsigned char> chrStage2Rest;
-
-			/*if (sizeTmp >= dict.size())
-				break;*/
+			dictTmp.clear();
+		};
+		
+		int i = -1;
+		vector<thread> t(gWIN_LEN - gWIN_LEN_SMALLEST+1);
+		for (int winLen = gWIN_LEN_SMALLEST; winLen <= gWIN_LEN; winLen++)
+		{
+			i++;
+			t[i]= thread(bind(func, winLen));			
+		}		
+		for (auto& it : t)
+		{
+			it.join();
 		}
 
 		// remove crossing positions of patterns BETWEEN DIFFERENT WINLEN, searching from bigger to smaller, removing smaller
