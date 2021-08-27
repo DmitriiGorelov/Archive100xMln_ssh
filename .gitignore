@@ -11,3 +11,4 @@
 /CompressMln/CompressMln/fb.bat
 *.ipch
 *.gdv
+*Debug_Unpack*
