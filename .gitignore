@@ -12,3 +12,4 @@
 *.ipch
 *.gdv
 *Debug_Unpack*
+*Release_Unpack*
