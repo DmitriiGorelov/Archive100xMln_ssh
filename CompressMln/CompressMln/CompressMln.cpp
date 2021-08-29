@@ -1,6 +1,5 @@
 // CompressMln.cpp : Defines the entry point for the console application.
 //
-
 #include "stdafx.h"
 
 #include <functional>
@@ -8,35 +7,24 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <string>
 #include <vector>
 #include <map>
 #include <filesystem>
 #include <conio.h>
+#include <algorithm>
 
 #define gMAX_LEN 1000000
 #define gMAX_VALUE 100
 #define gMIN_VALUE 1
+// WinLen must not exceed 7 bytes! 8th byte is used to save the pattern length
 #define gWIN_LEN 5
 #define gWIN_LEN_SMALLEST 3
 
 using namespace std;
 namespace fs = std::filesystem;
 
-/*
-struct pattern {
-	explicit pattern(const string& newValue)
-	{
-		value = newValue;
-		//flag = false;
-	}
-
-	string value;
-	//bool flag;
-	pattern& operator=(const string& newValue) { value = newValue; return *this; }
-};*/
-typedef string pattern;
+typedef uint64_t pattern;
 
 static string sPathSource;
 static string sPathArchive;
@@ -92,6 +80,7 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 	// read len of dictionary
 	inputFile.read((char*)&byte4, sizeof(byte4));
 	size = *byte4p;
+	pattern key;
 	for (size_t dic = 0; dic < size; dic++)
 	{
 		// size of pattern		
@@ -101,7 +90,9 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 		bytenp[pattSize] = 0;
 		// pattern
 		inputFile.read(bytenp, pattSize);
-		shared_ptr<pattern> pt=make_shared<pattern>(string(bytenp));	
+		key = 0;
+		memcpy(&key, bytenp, pattSize);
+		shared_ptr<pattern> pt=make_shared<pattern>(key + (pattern(pattSize) << 56));
 		delete[] bytenp;
 		// len of positions vector
 		inputFile.read((char*)&byte4, sizeof(byte4));
@@ -131,7 +122,8 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 	{
 		//for (auto pos : pt.second)
 		{
-			vector<unsigned char> v{ pt.second->begin(), pt.second->end() };
+			vector<unsigned char> v(*pt.second.get() >> 56); //{ pt.second->begin(), pt.second->end() };			
+			memcpy(&v[0], pt.second.get(), v.size());
 			chrStage1Rest.insert(chrStage1Rest.begin() + pt.first, v.begin(),v.end());
 		}
 	}
@@ -163,7 +155,7 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 void pack1()
 {
 	// 
-	// İÒÀÏ 1 ÏÎÈÑÊ ÂÑÅÕ ÏÎÄĞßÄ ÏÎÂÒÎĞßŞÙÈÕÑß İËÅÌÅÍÒÎÂ äëèíîé 3 è áîëüøå
+	// Stage 1: search repeating sequences with lenght 3 and more
 	// 
 	// compress by elements size (max=100 need 7 bits)
 	vector<unsigned char> chrSource(source.begin(), source.end());
@@ -224,12 +216,11 @@ void pack1()
 void pack2()
 {
 	//
-	// İÒÀÏ 2 ÏÎÈÑÊ ÏÎÂÒÎĞÍÎ ÂÑÒĞÅ×ÀŞÙÈÕÑß ÊËŞ×ÅÉ
+	// Stage 2: Search for repeating patterns
 	// 	
-	typedef int counter;
-	unordered_map<int, unordered_map<string, counter>> dict; // key1 - winLen, key2 - pattern, value - counter for pattern.
-	unordered_map<string, vector<int>> dictTmp; // key1 - pattern, pair counter, pair vector - positions of found patterns
-	map<int, unordered_map<string, vector<int>>> dictTmp2; // ordered map! important for iteration below. key1 is winLen, key2 is pattern, vector of positions where pattern was found
+	unordered_map<int, unordered_map<pattern, int>> dict; // key1 - winLen, key2 - pattern, value - counter for pattern.
+	unordered_map<pattern, vector<int>> dictTmp; // key1 - pattern, pair counter, pair vector - positions of found patterns
+	map<int, unordered_map<pattern, vector<int>>> dictTmp2; // ordered map! important for iteration below. key1 is winLen, key2 is pattern, vector of positions where pattern was found
 	list<int> memoWinLen;
 	int sizeTmp = 0;
 	int winLen = gWIN_LEN;
@@ -243,13 +234,16 @@ void pack2()
 	if (chrStage1Rest.size() > winLen)
 	{
 		auto func = [&dictTmp2](int winLen) {
-			unordered_map<string, vector<int>> dictTmp;
-			int numEntries=0;
-			for (int i = 0; (i <= chrStage1Rest.size() - winLen)/* && (dict.size()<255)*/; i++)
-			{
-				dictTmp[string(chrStage1Rest.begin() + i, chrStage1Rest.begin() + i + winLen)].push_back(i);
+			unordered_map<pattern, vector<int>> dictTmp;
+			pattern key;
+			int numEntries = 0;
+			for (int i = 0; (i <= chrStage1Rest.size() - winLen); i++)
+			{				
+				key = 0;
+				memcpy(&key, &chrStage1Rest[i], winLen);
+				dictTmp[key].push_back(i);
 
-				if (dictTmp[string(chrStage1Rest.begin() + i, chrStage1Rest.begin() + i + winLen)].size() == 2) // more than 1 but not count twice
+				if (dictTmp[key].size() == 2) // more than 1 but not count twice
 					numEntries++;
 				if (numEntries > ((1 << (min(4, winLen / 2) * 8)) - 1))
 				{
@@ -261,12 +255,12 @@ void pack2()
 			{
 				if (it.second.size() > 1)
 				{
-					dictTmp2[winLen][it.first] = it.second;
+					dictTmp2[winLen][it.first + (pattern(winLen) << 56) ] = it.second;
 				}
 			}
 			dictTmp.clear();
 		};
-		
+
 		int i = -1;
 		vector<thread> t(gWIN_LEN - gWIN_LEN_SMALLEST+1);
 		for (int winLen = gWIN_LEN_SMALLEST; winLen <= gWIN_LEN; winLen++)
@@ -284,7 +278,7 @@ void pack2()
 		auto ritWinLenNext = ritWinLen;
 		while (ritWinLen != dictTmp2.rend()) // winLen
 		{
-			vector<string> posSorted;
+			vector<pattern> posSorted;
 
 			auto fillSorted = [&]() {
 				//sort patterns by counter value
@@ -474,7 +468,7 @@ void pack2()
 	for (auto it = dictTmp3.rbegin(); it != dictTmp3.rend(); it++)
 	{
 		dictPatterns[(*it).second].emplace(dictPatterns[(*it).second].begin(),(*it).first);
-		chrStage1Rest.erase(chrStage1Rest.begin()+ (*it).first, chrStage1Rest.begin() + (*it).first+((*it).second->size()));
+		chrStage1Rest.erase(chrStage1Rest.begin()+ (*it).first, chrStage1Rest.begin() + (*it).first+(*(*it).second.get() >> 56));
 	}
 }
 
@@ -512,11 +506,11 @@ void saveArchive(const std::string& sPathArchive)
 	for (auto it : dictPatterns)
 	{
 		// size of pattern
-		size = it.first->length();
+		size = *it.first.get() >> 56;
 		*byte4p = size;
 		outputFile.write((char*)&byte4, sizeof(byte4));
 		// write pattern
-		outputFile.write(it.first->c_str(), it.first->length());
+		outputFile.write((char*)(it.first.get()), size);
 		//write len of positions vector
 		size = it.second.size();
 		*byte4p = size;
@@ -560,11 +554,7 @@ int main(int argc, const char* args[])
 		srand(time(0));
 		source.resize(gMAX_LEN);
 		int rangeProvider = gMAX_VALUE - gMIN_VALUE + 1;
-		for (int i = 0; i < gMAX_LEN; i++)
-		{			
-			source[i]=rand() % (rangeProvider) + gMIN_VALUE;
-			//source[i] = 2;
-		}
+		std::generate(source.begin(), source.end(), [=]() {return rand() % (rangeProvider)+gMIN_VALUE; });
 	};
 
 	string y("n");
