@@ -35,13 +35,13 @@ static unordered_map<unsigned char, map<int, int>> chrStage1; // key1 is element
 static vector<unsigned char> chrStage1Rest;
 static map<shared_ptr<pattern>, vector<int>> dictPatterns;
 
-void saveMln()
+void saveMln(const std::string& sPath)
 {
-	std::ofstream outputFile(sPathSource);
+	std::ofstream outputFile(sPath);
 
 	if (!outputFile.is_open())
 	{
-		cout << "could not open file " << sPathSource;
+		cout << "could not open file " << sPath;
 	}
 
 	for (auto it : source)
@@ -149,7 +149,7 @@ void unpack(const std::string& sPathArchive, const std::string& sPathUnpacked)
 		}
 	}
 
-	saveMln();
+	saveMln(sPathUnpacked);
 }
 
 void pack1()
@@ -596,14 +596,14 @@ int main(int argc, const char* args[])
 			y = tolower(y[0]);
 			if (y == "y")
 			{
-				saveMln();
+				saveMln(sPathSource);
 			}
 		}
 	}
 	else 
 	{
 		genereateMln();
-		saveMln();
+		saveMln(sPathSource);
 	}		
 
 	
