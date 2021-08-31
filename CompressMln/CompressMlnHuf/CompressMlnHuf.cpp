@@ -28,7 +28,6 @@ static string sPathUnpacked;
 
 static vector<unsigned char> source;
 static int bitCount = 0;
-static vector<vector<bool>> chrCodes;
 
 void prepareTree();
 
@@ -90,6 +89,7 @@ public:
 };
 static vector<freqElem> frequencies;
 static vector<freqElem> tree;
+static vector<vector<bool>> rawcodes(256);
 
 void saveMln(const std::string& sPath)
 {
@@ -192,8 +192,19 @@ void prepareTree()
 	std::sort(frequencies.begin(), frequencies.end(), [](freqElem left, freqElem right) {if (left.counter == right.counter) return left.elem < right.elem; else return left.counter > right.counter; });
 
 	frequencies.erase(std::remove_if(frequencies.begin(), frequencies.end(), [](freqElem elem) {return elem.counter < 1; }), frequencies.end());
+	
+	if (frequencies.size() == 1)
+	{
+		freqElem top;
+		top.counter = frequencies[0].counter;
+		top.elem = -1;
+		top.left = nullptr;// make_shared<freqElem>(frequencies[0]);
+		top.right = nullptr;
+		tree.push_back(top);
+	}
+	else
+		tree = frequencies;
 
-	tree = frequencies;
 	while (tree.size() > 1)
 	{
 		std::sort(tree.begin(), tree.end(), [](freqElem left, freqElem right) {return left.counter > right.counter; });
@@ -211,11 +222,11 @@ void prepareTree()
 		top.right = make_shared<freqElem>(right);
 		tree.push_back(top);
 	}
-
+	
 	for (auto& it : frequencies)
 	{
-		tree[0].getCode(it.elem, it.code);
-	}
+		tree[0].getCode(it.elem, rawcodes[it.elem]);
+	}	
 
 	std::sort(frequencies.begin(), frequencies.end(), [](freqElem left, freqElem right) {return left.elem < right.elem; });
 }
@@ -224,27 +235,16 @@ void pack1()
 {
 	prepareFreq();
 
-	//vector<unsigned char> chrSource(source.begin(), source.end());	
-	chrCodes.resize(source.size());
-
 	for (auto it : source)
 	{
 		frequencies[it]++;
-	}
-
-	vector<vector<bool>> rawcodes(frequencies.size());
+	}	
 
 	prepareTree();
-
-	for (auto& it : frequencies)
-	{
-		rawcodes[it.elem] = it.code;
-	}
 
 	// can be parallel!	
 	for (int it=0; it<source.size(); it++)
 	{		
-		chrCodes[it]= rawcodes[source[it]];
 		bitCount += rawcodes[source[it]].size();
 	}
 }
@@ -280,32 +280,34 @@ void saveArchive(const std::string& sPathArchive)
 	//write len of bits
 	outputFile.write((char*)&byte4, sizeof(byte4));
 
-	int cnt = 0;
-	//unsigned char bits=0;
-	vector<unsigned char> bytes(bitCount / 8 + ((bitCount % 8) > 0 ? 1 : 0), 0);
-	int idx(0);
-	auto it = chrCodes.begin();
-	while (it != chrCodes.end())
+	if (bitCount > 0)
 	{
-		auto bit = (*it).begin();
-		while (bit != (*it).end())
+		int cnt = 0;
+		vector<unsigned char> bytes(bitCount / 8 + ((bitCount % 8) > 0 ? 1 : 0), 0);
+		int idx(0);
+		auto it = source.begin();
+		while (it != source.end())
 		{
-			bytes[idx] |= (*bit << cnt);
-			cnt++;
-			if (cnt == 8)
+			auto bit = rawcodes[(*it)].begin();
+			while (bit != rawcodes[(*it)].end())
 			{
-				cnt = 0;
-				idx++;
+				bytes[idx] |= (*bit << cnt);
+				cnt++;
+				if (cnt == 8)
+				{
+					cnt = 0;
+					idx++;
+
+					bit++;
+					continue;
+				}
 
 				bit++;
-				continue;
 			}
-
-			bit++;
+			it++;
 		}
-		it++;
+		outputFile.write((char*)&bytes[0], bytes.size());
 	}
-	outputFile.write((char*)&bytes[0], bytes.size());
 
 	//..
 	outputFile.close();
@@ -339,7 +341,7 @@ int main(int argc, const char* args[])
 		srand(time(0));
 		source.resize(gMAX_LEN);
 		int rangeProvider = gMAX_VALUE - gMIN_VALUE + 1;
-		std::generate(source.begin(), source.end(), [=]() {return rand() % (rangeProvider)+gMIN_VALUE; });
+		std::generate(source.begin(), source.end(), [=]() {return 2; rand() % (rangeProvider)+gMIN_VALUE; });
 	};
 
 	string y("n");
