@@ -13,3 +13,4 @@
 *.gdv
 *Debug_Unpack*
 *Release_Unpack*
+*/Debug/*
