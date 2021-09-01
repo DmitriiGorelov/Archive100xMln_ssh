@@ -306,6 +306,8 @@ void saveArchive(const std::string& sPathArchive)
 		bool cudaSucceed(!onCPU && cudaCaller::canCuda());
 		if (cudaSucceed)
 		{			
+			printf("RUN ON GPU!!!!");
+
 			int cnt(0);
 			for (auto it : source)
 			{				
@@ -320,6 +322,7 @@ void saveArchive(const std::string& sPathArchive)
 		{
 			//vector<unsigned char> hostBytesCPU(bitCount / 8 + ((bitCount % 8) > 0 ? 1 : 0), 0);
 			// CPU
+			printf("RUN ON CPU!");
 			int cnt = 0;
 			int idx(0);
 			auto it = source.begin();
