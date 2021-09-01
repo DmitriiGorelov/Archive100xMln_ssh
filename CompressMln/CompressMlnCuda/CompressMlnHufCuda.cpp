@@ -255,7 +255,6 @@ void pack1()
 
 	prepareTree();
 
-	// can be parallel!	
 	for (int it = 0; it < source.size(); it++)
 	{
 		bitCount += rawcodes[source[it]].size();
