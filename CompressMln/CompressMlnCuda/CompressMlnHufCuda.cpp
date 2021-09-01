@@ -1,5 +1,10 @@
 // CompressMln.cpp : Defines the entry point for the console application.
 //
+//LICENSE:
+// This is demonstration program of Huffman compressing algorithm with involving of GPU. It builds archive file
+// out of (a) source file and (b) huffman-tree graph.
+// USING THIS CODE IS LIMITED and ILLEGAL until other granted in written permission from Gorelov Dmitry, dmitry.gorelov@gmail.com 
+
 #include <functional>
 #include <fstream>
 #include <iostream>
